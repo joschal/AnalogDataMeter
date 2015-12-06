@@ -7,12 +7,31 @@ status = FritzStatus()
 lastRecieved = int(status.bytes_received)
 startTime = time.time()
 
-GPIO.cleanup()
 
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(12, GPIO.OUT)
-pwm = GPIO.PWM(12, 500)
-pwm.start(50)
+pwm = GPIO.PWM(12, 50)
+pwm.start(0)
+
+currentRate = 0
+pwm.ChangeDutyCycle(currentRate)
+
+
+def transition(deltaBytes, deltaTime):
+    global currentRate
+    endRate = ((deltaBytes + 1) / (6425000 * deltaTime)) * 100
+
+    diff = (endRate - currentRate) / 10
+    for i in range(10):
+        currentRate = currentRate + diff
+        if currentRate >= 100:
+            currentRate = 100
+        elif currentRate < 1:
+            currentRate = 0
+
+        pwm.ChangeDutyCycle(int(currentRate))
+
+        time.sleep(0.5)
 
 while(True):
     status = FritzStatus()
@@ -21,18 +40,9 @@ while(True):
     deltaTime = currentTime - startTime
 
     bytesRecieved = int(status.bytes_received)
-    deltaBytes = (bytesRecieved - lastRecieved) / deltaTime
+    deltaBytes = bytesRecieved - lastRecieved
+
+    transition(deltaBytes, deltaTime)
 
     lastRecieved = bytesRecieved
     startTime = currentTime
-
-    rate = ((deltaBytes + 1) / (6425000 * deltaTime)) * 100
-
-    if rate > 90:
-        rate = 90
-    elif rate < 4:
-        rate = 0
-
-    pwm.ChangeDutyCycle(int(rate))
-
-    time.sleep(1)
